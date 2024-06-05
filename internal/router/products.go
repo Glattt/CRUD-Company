@@ -1,33 +1,20 @@
 package router
 
 import (
-	"database/sql"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"projct/internal/handler"
 	"strconv"
 )
 
-func Products(db *sql.DB) gin.HandlerFunc {
+func Create(db *pgx.Conn) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		products, err := handler.Product(db)
-		if err != nil {
-			panic(err)
-
-			return
-		}
-
-		c.JSON(200, products)
-	}
-}
-
-func Create(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		u := handler.Products{}
+		u := handler.Product{}
 		if err := c.ShouldBindJSON(&u); err != nil {
 			return
 		}
 
-		if createErr := u.Create(db); createErr != nil {
+		if createErr := u.Create(c, db); createErr != nil {
 			return
 		}
 
@@ -35,28 +22,27 @@ func Create(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func Update(db *sql.DB) gin.HandlerFunc {
+func Get(db *pgx.Conn) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
+
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
 			return
 		}
 
-		u := handler.Products{ID: int64(idNum)}
-		if err := c.ShouldBindJSON(&u); err != nil {
+		p := handler.Product{ID: int64(idNum)}
+		if getErr := p.Get(c, db); getErr != nil {
+			c.JSON(200, gin.H{"message": "product not found"})
+
 			return
 		}
 
-		if updateErr := u.Update(db); updateErr != nil {
-			return
-		}
-
-		c.JSON(200, gin.H{"message": "product updated", "product": u})
+		c.JSON(200, gin.H{"message": "product found", "product": p})
 	}
 }
 
-func Delete(db *sql.DB) gin.HandlerFunc {
+func Delete(db *pgx.Conn) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		idNum, err := strconv.Atoi(id)
@@ -64,8 +50,8 @@ func Delete(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		p := handler.Products{ID: int64(idNum)}
-		if deleteErr := p.Delete(db); deleteErr != nil {
+		p := handler.Product{ID: int64(idNum)}
+		if deleteErr := p.Delete(c, db); deleteErr != nil {
 			return
 		}
 
@@ -73,20 +59,36 @@ func Delete(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
-func Get(db *sql.DB) gin.HandlerFunc {
+func Update(db *pgx.Conn) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
-
 		idNum, err := strconv.Atoi(id)
 		if err != nil {
 			return
 		}
 
-		p := handler.Products{ID: int64(idNum)}
-		if getErr := p.Get(db); getErr != nil {
+		u := handler.Product{ID: int64(idNum)}
+		if err := c.ShouldBindJSON(&u); err != nil {
 			return
 		}
 
-		c.JSON(200, gin.H{"message": "product found", "product": p})
+		if updateErr := u.Update(c, db); updateErr != nil {
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "product updated", "product": u})
+	}
+}
+
+func Products(db *pgx.Conn) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		products, err := handler.Products(c, db)
+		if err != nil {
+			panic(err)
+
+			return
+		}
+
+		c.JSON(200, products)
 	}
 }

@@ -1,61 +1,63 @@
 package handler
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
+	"github.com/jackc/pgx/v5"
 )
 
-type Products struct {
+type Product struct {
 	ID      int64  `json:"id,omitempty"`
 	Model   string `json:"model"`
 	Company string `json:"company"`
 	Price   int64  `json:"price"`
 }
 
-func (p Products) Create(db *sql.DB) error {
-	_, err := db.Exec("insert into products (model, company, price) values ($1, $2, $3)", p.Model, p.Company, p.Price)
+func (p Product) Create(ctx context.Context, db *pgx.Conn) error {
+	_, err := db.Exec(ctx, "insert into products (model, company, price) values ($1, $2, $3)", p.Model, p.Company, p.Price)
 
 	return err
 }
 
-func (p *Products) Get(db *sql.DB) error {
-	rows := db.QueryRow("select * from products where id = $1", p.ID)
-	if rows.Err() != nil {
-		return rows.Err()
+func (p *Product) Get(ctx context.Context, db *pgx.Conn) error {
+	rows := db.QueryRow(ctx, "select * from products where id = $1", p.ID)
+	if rows == nil {
+		return pgx.ErrNoRows
 	}
 
 	if scanErr := rows.Scan(&p.ID, &p.Model, &p.Company, &p.Price); scanErr != nil {
 		return scanErr
 	}
-	fmt.Println(p)
 
 	return nil
 }
 
-func (p Products) Delete(db *sql.DB) error {
-	_, err := db.Exec("delete from products where id=$1", p.ID)
+func (p Product) Delete(ctx context.Context, db *pgx.Conn) error {
+	_, err := db.Exec(ctx, "delete from products where id=$1", p.ID)
 
 	return err
 }
 
-func (p Products) Update(db *sql.DB) error {
-	_, err := db.Exec("update products set price =$1 where id=$2", 9999, p.ID)
+func (p Product) Update(ctx context.Context, db *pgx.Conn) error {
+	_, err := db.Exec(ctx, "update products set price =$1 where id=$2", p.Price, p.ID)
 
 	return err
 }
 
-func Product(db *sql.DB) ([]Products, error) {
-	rows, err := db.Query("select * from products")
+func Products(ctx context.Context, db *pgx.Conn) ([]Product, error) {
+	fmt.Println("get products")
+
+	rows, err := db.Query(ctx, `select * from products`)
 	if err != nil {
 		return nil, err
 	}
 
 	defer rows.Close()
 
-	products := make([]Products, 0)
+	products := make([]Product, 0)
 
 	for rows.Next() {
-		p := Products{}
+		p := Product{}
 
 		if scanErr := rows.Scan(&p.ID, &p.Model, &p.Company, &p.Price); scanErr != nil {
 			return nil, scanErr
